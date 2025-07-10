@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>GeoTrees - Find Nearby Trees</title>
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css " rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css " />
+    <style>
+        /* Modern UI Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #e8f5e8 0%, #f0f9f0 100%);
+            min-height: 100vh;
+            color: #2d5a2d;
+            background-color: white;
+        }
+
+        .header {
+            position: relative; /* Needed for absolute positioning inside */
+            padding: 1rem;
+            grid-column: 1 / -1;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        /* Toggle Button */
+        #darkModeToggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: #2d5a2d;
+        }
+
+        button {
+            padding: 0.5rem 1rem;
+            margin-top: 1rem;
+            cursor: pointer;
+        }
+
+        /* DARK MODE - Activated via .dark-mode on <body> */
+        .dark-mode {
+      background-color: #121212 !important;
+      background: none !important;
+      color: #ffffff;
+    }
+    .dark-mode .container,
+    .dark-mode .search-panel,
+    .dark-mode .results-panel,
+    .dark-mode .map-container,
+    .dark-mode .tree-card,
+    .dark-mode .stats-bar {
+      background-color: #1e1e1e !important;
+      color: #ffffff;
+      border-color: #333;
+    }
+    .dark-mode .form-control,
+    .dark-mode select.form-control,
+    .dark-mode input.form-control {
+      background-color: #2b2b2b;
+      color: #fff;
+      border-color: #444;
+    }
+    .dark-mode .form-control:focus {
+      border-color: #66bb6a;
+      box-shadow: 0 0 0 3px rgba(102, 187, 106, 0.2);
+      background-color: #333;
+    }
+    .dark-mode .btn,
+    .dark-mode .map-btn,
+    .dark-mode .location-btn {
+      background-color: #333;
+      color: #fff;
+    }
+    .dark-mode .tree-card::before {
+      background: linear-gradient(90deg, #66bb6a, #81c784);
+    }
+    .dark-mode .tree-card.highlighted {
+      border-color: #66bb6a;
+      box-shadow: 0 10px 30px rgba(102, 187, 106, 0.2);
+    }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        .logo i {
+            font-size: 3rem;
+            color: #2d5a53;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .logo h1 {
+            font-size: 2.5rem;
+            color: #2d5a53;
+            font-weight: 700;
+        }
+        .subtitle {
+            color: #5a7c76;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 350px 1fr 400px;
+            gap: 25px;
+            align-items: start;
+        }
+        .search-panel {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 2px solid #e8f5e8;
+            position: sticky;
+            top: 20px;
+        }
+        .map-container {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 2px solid #e8f5e8;
+            height: 600px;
+            position: sticky;
+            top: 20px;
+        }
+        .map-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .map-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2d5a2d;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .map-controls {
+            display: flex;
+            gap: 8px;
+        }
+        .map-btn {
+            background: #27ae83;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .map-btn:hover {
+            background: #229954;
+            transform: translateY(-1px);
+        }
+        #map {
+            height: 520px;
+            border-radius: 15px;
+            border: 2px solid #e8f5e8;
+        }
+        .results-panel {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 2px solid #e8f5e8;
+            min-height: 600px;
+            max-height: 800px;
+            overflow-y: auto;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2d5a2d;
+            font-size: 0.9rem;
+        }
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e8f5e8;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: #fafcfa;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: #27ae60;
+            box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.1);
+            background: white;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        .input-group .form-control {
+            flex: 1;
+        }
+        .btn {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(39, 174, 96, 0.3);
+        }
+        .btn:active {
+            transform: translateY(0);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #95a5a6 0%, #bdc3c7 100%);
+        }
+        .btn-secondary:hover {
+            box-shadow: 0 8px 25px rgba(149, 165, 166, 0.3);
+        }
+        .location-btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            padding: 12px;
+            border-radius: 10px;
+            border: none;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-left: 10px;
+        }
+        .location-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.3);
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e8f5e8;
+            border-top: 4px solid #27ae60;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .tree-card {
+            background: linear-gradient(135deg, #f8fcf8 0%, #ffffff 100%);
+            border: 2px solid #e8f5e8;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .tree-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+        }
+        .tree-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            border-color: #27ae60;
+        }
+        .tree-card.highlighted {
+            border-color: #27ae60;
+            box-shadow: 0 10px 30px rgba(39, 174, 96, 0.2);
+        }
+        .tree-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .tree-species {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #2d5a2d;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .similarity-badge {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .tree-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #5a7c5a;
+            font-size: 0.9rem;
+        }
+        .info-item i {
+            color: #27ae60;
+            width: 16px;
+        }
+        .distance-info {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            text-align: center;
+            margin-top: 10px;
+        }
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: #7f8c8d;
+        }
+        .no-results i {
+            font-size: 4rem;
+            color: #bdc3c7;
+            margin-bottom: 20px;
+        }
+        .stats-bar {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            text-align: center;
+        }
+        .stats-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #27ae60;
+            margin-bottom: 5px;
+        }
+        .stats-label {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 300px 1fr;
+                gap: 20px;
+            }
+            .map-container {
+                grid-column: 1 / -1;
+                grid-row: 2;
+                height: 400px;
+                position: static;
+            }
+            #map {
+                height: 320px;
+            }
+        }
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+                padding: 15px;
+            }
+            .search-panel {
+                position: static;
+                padding: 20px;
+            }
+            .map-container {
+                height: 350px;
+            }
+            #map {
+                height: 270px;
+            }
+            .logo h1 {
+                font-size: 2rem;
+            }
+            .tree-icon {
+                font-size: 24px;
+                text-align: center;
+                line-height: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <button id="darkModeToggle" title="Toggle Dark Mode"><i class="fas fa-moon"></i></button>
+            <div class="logo">
+                <i class="fas fa-tree"></i>
+                <h1>GeoNearU</h1>
+            </div>
+            <p class="subtitle">Connect with nearby trees, learn, compare and discover what grows around you🌍</p>
+        </div>
+         <div class="search-panel">
+            <h2 style="margin-bottom: 25px; color: #2d5a2d;"><i class="fas fa-search"></i> Find Nearby Trees</h2>
+            <form id="searchForm">
+                <div class="form-group">
+                    <label><i class="fas fa-map-marker-alt"></i> Your Location</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" class="form-control" id="location" placeholder="Click map or use GPS" readonly />
+                        <button type="button" class="location-btn" onclick="getCurrentLocation()">
+                            <i class="fas fa-crosshairs"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-seedling"></i> Tree Species (Optional)</label>
+                    <select class="form-control" id="species">
+                        <option value="">All species</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-calendar-alt"></i> Tree Age Range</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="minAge" placeholder="Min age">
+                        <input type="number" class="form-control" id="maxAge" placeholder="Max age">
+                    </div>
+                </div>
+                <!--
+                <div class="form-group">
+                    <label><i class="fas fa-map-pin"></i> Location Filter</label>
+                    <input type="text" class="form-control" id="locationFilter" placeholder="Park, street, neighborhood...">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-project-diagram"></i> Planting Project</label>
+                    <select class="form-control" id="plantingProject">
+                        <option value="">All projects</option>
+                    </select>
+                </div>
+                -->
+                <div class="form-group">
+                    <label><i class="fas fa-ruler-horizontal"></i> Search Radius (km)</label>
+                    <input type="range" class="form-control" id="searchRadius" min="0.5" max="10" step="0.5" value="2">
+                    <div style="text-align: center; color: #7f8c8d; margin-top: 5px;">
+                        <span id="radiusValue">2</span> km
+                    </div>
+                </div>
+                <button type="submit" class="btn" style="width: 100%; margin-bottom: 10px;">
+                    <i class="fas fa-search"></i> Search Trees
+                </button>
+                <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="clearFilters()">
+                    <i class="fas fa-eraser"></i> Clear Filters
+                </button>
+            </form>
+        </div>
+        
+       
+        <div class="map-container">
+            <div class="map-header">
+                <div class="map-title"><i class="fas fa-map"></i> Tree Locations</div>
+                <div class="map-controls">
+                    <button class="map-btn" onclick="centerMapOnUser()" title="Center on your location">
+                        <i class="fas fa-crosshairs"></i>
+                    </button>
+                    <button class="map-btn" onclick="toggleSatelliteView()" title="Toggle satellite view">
+                        <i class="fas fa-satellite"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="map"></div>
+        </div>
+
+        <div class="results-panel">
+            <div class="stats-bar" id="statsBar" style="display: none;">
+                <div class="stats-number" id="treeCount">0</div>
+                <div class="stats-label">Trees Found Nearby</div>
+            </div>
+            <div id="loadingState" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Searching for trees in your area...</p>
+            </div>
+            <div id="resultsContainer">
+                <div class="no-results">
+                    <i class="fas fa-search"></i>
+                    <h3>Ready to explore!</h3>
+                    <p>Click the GPS button or click on the map to set your location, then search for trees.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js "></script>
+    <script>
+                let userLatitude = null;
+        let userLongitude = null;
+        let map = null;
+        let userMarker = null;
+        let treeMarkers = [];
+        let searchRadiusCircle = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            setupEventListeners();
+            initializeMap();
+            loadSpeciesDropdown(); // Load species dynamically
+        });
+
+        function initializeMap() {
+            map = L.map('map').setView([1.3521, 103.8198], 10);
+            const defaultTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',  {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            const satelliteTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',  {
+                attribution: '&copy; Esri'
+            });
+        }
+
+        function updateUserLocation(lat, lng) {
+            if (userMarker) map.removeLayer(userMarker);
+            userMarker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    className: 'user-marker',
+                    html: '<div style="background: #3498db; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white;"></div>',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                })
+            }).addTo(map);
+            userMarker.bindPopup(`<strong>Your Location</strong><br>${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+            document.getElementById('location').value = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            updateSearchRadiusCircle();
+        }
+
+        function updateSearchRadiusCircle() {
+            if (!userLatitude || !userLongitude) return;
+            if (searchRadiusCircle) map.removeLayer(searchRadiusCircle);
+            const radius = parseFloat(document.getElementById('searchRadius').value) * 1000;
+            searchRadiusCircle = L.circle([userLatitude, userLongitude], {
+                color: '#27ae60',
+                fillColor: '#27ae60',
+                fillOpacity: 0.1,
+                radius
+            }).addTo(map);
+        }
+
+       function addTreeMarkersToMap(trees) {
+    treeMarkers.forEach(marker => map.removeLayer(marker));
+    treeMarkers = [];
+
+    trees.forEach(tree => {
+        const marker = L.marker([tree.coordinates.lat, tree.coordinates.lng], {
+            icon: L.divIcon({
+                className: 'tree-icon',
+                html: '🌳',
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            })
+        }).addTo(map);
+
+        marker.bindPopup(`
+            <div class="custom-popup">
+                <div class="popup-header">${tree.species}</div>
+                <div class="popup-info">DBH: ${tree.dbh_cm} cm</div>
+                <div class="popup-info">Height: ${tree.height_m} m</div>
+                <div class="popup-info">Biomass: ${tree.biomass_kg} kg</div>
+                <div class="popup-info">Carbon: ${tree.carbon_stock_kg} kg</div>
+                <div class="popup-distance">${tree.distance.toFixed(2)} km away</div>
+            </div>
+        `);
+
+        marker.on('click', () => highlightTreeCard(tree.id));
+        treeMarkers.push(marker);
+    });
+
+    if (trees.length > 0 && userMarker) {
+        const group = new L.featureGroup([userMarker, ...treeMarkers]);
+        map.fitBounds(group.getBounds().pad(0.1));
+    }
+}
+
+
+
+        function highlightTreeCard(treeId) {
+            document.querySelectorAll('.tree-card').forEach(card => card.classList.remove('highlighted'));
+            const targetCard = document.querySelector(`[data-tree-id="${treeId}"]`);
+            if (targetCard) {
+                targetCard.classList.add('highlighted');
+                targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function setupEventListeners() {
+            document.getElementById('searchForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                searchTrees();
+            });
+            document.getElementById('searchRadius').addEventListener('input', function (e) {
+                document.getElementById('radiusValue').textContent = e.target.value;
+                updateSearchRadiusCircle();
+            });
+        }
+
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        userLatitude = position.coords.latitude;
+                        userLongitude = position.coords.longitude;
+                        updateUserLocation(position.coords.latitude, position.coords.longitude);
+                        map.setView([userLatitude, userLongitude], 14);
+                        searchTrees();
+                    },
+                    error => alert('Unable to get your location.')
+                );
+            } else {
+                alert('Geolocation is not supported.');
+            }
+        }
+
+        async function fetchTreesFromServer(params) {
+            try {
+                const response = await fetch(`api/get_trees.php?${new URLSearchParams(params).toString()}`);
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+                return data.map(tree => ({
+                    ...tree,
+                    distance: calculateDistance(userLatitude, userLongitude, tree.coordinates.lat, tree.coordinates.lng)
+                }));
+            } catch (error) {
+                console.error('Failed to fetch trees:', error);
+                alert('Could not load tree data from server.');
+                return [];
+            }
+        }
+
+async function searchTrees() {
+    if (!userLatitude || !userLongitude) {
+        alert('Please set your location first.');
+        return;
+    }
+    showLoadingState();
+    const params = {
+        lat: userLatitude,
+        lng: userLongitude,
+        radius: document.getElementById('searchRadius').value,
+        species: document.getElementById('species').value
+    };
+    try {
+        console.log("🌐 Sending to server:", params);
+        const trees = await fetchTreesFromServer(params);
+        renderTreeResults(trees, params); // Pass params here
+        addTreeMarkersToMap(trees);
+    } finally {
+        hideLoadingState();
+    }
+}
+
+        function clearFilters() {
+            document.getElementById('species').value = '';
+            document.getElementById('searchRadius').value = '2';
+            document.getElementById('radiusValue').textContent = '2';
+            if (userLatitude && userLongitude) searchTrees();
+            else resetResultsPanel();
+        }
+
+        function resetResultsPanel() {
+            document.getElementById('resultsContainer').innerHTML = `
+                <div class="no-results">
+                    <i class="fas fa-search"></i>
+                    <h3>Ready to explore!</h3>
+                    <p>Click the GPS button or click on the map to set your location, then search for trees.</p>
+                </div>`;
+            document.getElementById('statsBar').style.display = 'none';
+            treeMarkers.forEach(marker => map.removeLayer(marker));
+        }
+
+        function renderTreeResults(trees, params) {
+    const container = document.getElementById('resultsContainer');
+    const statsBar = document.getElementById('statsBar');
+    const countElem = document.getElementById('treeCount');
+    container.innerHTML = '';
+    if (!trees.length) {
+        container.innerHTML = `
+            <div class="no-results">
+                <i class="fas fa-frown"></i>
+                <h3>No trees found!</h3>
+                <p>Try broadening your search criteria or adjusting the search radius.</p>
+            </div>`;
+        statsBar.style.display = 'none';
+        return;
+    }
+    countElem.textContent = trees.length;
+    statsBar.style.display = 'block';
+    trees.sort((a, b) => a.distance - b.distance).forEach(tree => {
+        const card = document.createElement('div');
+        card.className = 'tree-card';
+        card.setAttribute('data-tree-id', tree.id);
+        card.innerHTML = `
+            <div class="tree-header">
+                <div class="tree-species"><i class="fas fa-tree"></i> ${tree.species}</div>
+                <span class="similarity-badge">${(100 - (tree.distance / params.radius * 100)).toFixed(0)}% Match</span>
+            </div>
+            <div class="tree-info">
+                <div class="info-item"><i class="fas fa-seedling"></i> DBH: ${tree.dbh_cm} cm</div>
+                <div class="info-item"><i class="fas fa-ruler-vertical"></i> Height: ${tree.height_m} m</div>
+                <div class="info-item"><i class="fas fa-weight"></i> Biomass: ${tree.biomass_kg} kg</div>
+                <div class="info-item"><i class="fas fa-fire-alt"></i> Carbon: ${tree.carbon_stock_kg} kg</div>
+            </div>
+            <div class="distance-info"><i class="fas fa-route"></i> ${tree.distance.toFixed(2)} km away</div>
+        `;
+        card.addEventListener('click', () => {
+            highlightTreeCard(tree.id);
+            map.setView([tree.coordinates.lat, tree.coordinates.lng], 16);
+            const marker = treeMarkers.find(m => m.getLatLng().lat === tree.coordinates.lat && m.getLatLng().lng === tree.coordinates.lng);
+            if (marker) marker.openPopup();
+        });
+        container.appendChild(card);
+    });
+}
+
+        function showLoadingState() {
+            document.getElementById('loadingState').style.display = 'block';
+            document.getElementById('resultsContainer').style.display = 'none';
+        }
+
+        function hideLoadingState() {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('resultsContainer').style.display = 'block';
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = deg2rad(lat2 - lat1);
+            const dLon = deg2rad(lon2 - lon1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(deg2rad(lat1)) *
+                Math.cos(deg2rad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function deg2rad(deg) {
+            return deg * Math.PI / 180;
+        }
+
+        // Load species into dropdown
+        async function loadSpeciesDropdown() {
+            try {
+                const response = await fetch('api/get_species.php');
+                const speciesList = await response.json();
+                const speciesSelect = document.getElementById('species');
+                speciesList.forEach(species => {
+                    const option = document.createElement('option');
+                    option.value = species;
+                    option.textContent = species;
+                    speciesSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading species:', error);
+            }
+        }
+
+        // Your JavaScript logic goes here
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggleBtn = document.getElementById('darkModeToggle');
+            toggleBtn.addEventListener('click', function () {
+                document.body.classList.toggle('dark-mode');
+                localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+            });
+            if (localStorage.getItem('theme') === 'dark') {
+                document.body.classList.add('dark-mode');
+            }
+        });
+
+        
+    </script>
+</body>
+</html>
